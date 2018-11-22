@@ -1,4 +1,5 @@
-package com.github.ajalt.reprint.module.marshmallow;
+package com.github.ajalt.reprint.module;
+
 
 import android.annotation.TargetApi;
 import android.content.Context;
@@ -14,7 +15,7 @@ import com.github.ajalt.reprint.core.Reprint;
 import com.github.ajalt.reprint.core.ReprintModule;
 
 /**
- * A reprint module that authenticates fingerprint using the marshmallow Imprint API.
+ * Base reprint module that authenticates fingerprint using the marshmallow Imprint API.
  * <p/>
  * This module supports most phones running Android Marshmallow.
  * <p/>
@@ -24,8 +25,15 @@ import com.github.ajalt.reprint.core.ReprintModule;
  */
 @TargetApi(Build.VERSION_CODES.M)
 @RequiresApi(Build.VERSION_CODES.M)
-public class MarshmallowReprintModule implements ReprintModule {
-    private static final int TAG = 2;
+public abstract class BaseReprintModule implements ReprintModule {
+
+    public static final Reprint.Logger NULL_LOGGER = new Reprint.Logger() {
+        public void log(String message) {}
+
+        public void logException(Throwable throwable, String message) {}
+    };
+
+    protected static final int TAG = -1;
 
     // The following FINGERPRINT constants are copied from FingerprintManager, since that class
     // isn't available pre-marshmallow, and they aren't defined in FingerprintManagerCompat for some
@@ -65,6 +73,11 @@ public class MarshmallowReprintModule implements ReprintModule {
      * The operation was canceled because the API is locked out due to too many attempts.
      */
     public static final int FINGERPRINT_ERROR_LOCKOUT = 7;
+
+    /**
+     * The operation was canceled because a new fingerprint has been added to the device
+     */
+    public static final int FINGERPRINT_ERROR_NEW_ENROLMENT_DETECTED = 8;
 
     // The following ACQUIRED constants are used with help messages
     /**
@@ -112,18 +125,20 @@ public class MarshmallowReprintModule implements ReprintModule {
      */
     public static final int FINGERPRINT_AUTHENTICATION_FAILED = 1001;
 
-    private final Context context;
-    private final Reprint.Logger logger;
+    protected final Context context;
+    protected Reprint.Logger logger = NULL_LOGGER;
 
-    public MarshmallowReprintModule(Context context, Reprint.Logger logger) {
+    public BaseReprintModule(Context context, Reprint.Logger logger) {
         this.context = context.getApplicationContext();
-        this.logger = logger;
+        if (logger != null) {
+            this.logger = logger;
+        }
     }
 
     // We used to use the appcompat library to load the fingerprint manager, but v25.1.0 was broken
     // on many phones. Instead, we handle the manager ourselves. FingerprintManagerCompat just
     // forwards calls anyway, so it doesn't add any value for us.
-    private FingerprintManager fingerprintManager() {
+    protected FingerprintManager fingerprintManager() {
         try {
             return context.getSystemService(FingerprintManager.class);
         } catch (Exception e) {
@@ -162,60 +177,21 @@ public class MarshmallowReprintModule implements ReprintModule {
     @Override
     public boolean hasFingerprintRegistered() throws SecurityException {
         final FingerprintManager fingerprintManager = fingerprintManager();
-        if (fingerprintManager == null) return false;
-        // Some devices with fingerprint sensors throw an IllegalStateException when trying to parse an
-        // internal settings file during this call. See #29.
-        try {
-            return fingerprintManager.hasEnrolledFingerprints();
-        } catch (IllegalStateException e) {
-            logger.logException(e, "MarshmallowReprintModule: hasEnrolledFingerprints failed unexpectedly");
-            return false;
-        }
+        return fingerprintManager != null && fingerprintManager.hasEnrolledFingerprints();
     }
 
     @Override
-    public void authenticate(final CancellationSignal cancellationSignal,
-                             final AuthenticationListener listener,
-                             final Reprint.RestartPredicate restartPredicate) {
-        authenticate(cancellationSignal, listener, restartPredicate, 0);
-    }
+    abstract public void authenticate(CancellationSignal cancellationSignal,
+                                      AuthenticationListener listener,
+                                      Reprint.RestartPredicate restartPredicate);
 
-    void authenticate(final CancellationSignal cancellationSignal,
-                              final AuthenticationListener listener,
-                              final Reprint.RestartPredicate restartPredicate,
-                              final int restartCount) throws SecurityException {
-        final FingerprintManager fingerprintManager = fingerprintManager();
-
-        if (fingerprintManager == null) {
-            listener.onFailure(AuthenticationFailureReason.UNKNOWN, true,
-                    context.getString(R.string.fingerprint_error_unable_to_process), TAG, FINGERPRINT_ERROR_CANCELED);
-            return;
-        }
-
-        final FingerprintManager.AuthenticationCallback callback =
-                new AuthCallback(restartCount, restartPredicate, cancellationSignal, listener);
-
-        // Why getCancellationSignalObject returns an Object is unexplained
-        final android.os.CancellationSignal signalObject = cancellationSignal == null ? null :
-                (android.os.CancellationSignal) cancellationSignal.getCancellationSignalObject();
-
-        // Occasionally, an NPE will bubble up out of FingerprintManager.authenticate
-        try {
-            fingerprintManager.authenticate(null, signalObject, 0, callback, null);
-        } catch (NullPointerException e) {
-            logger.logException(e, "MarshmallowReprintModule: authenticate failed unexpectedly");
-            listener.onFailure(AuthenticationFailureReason.UNKNOWN, true,
-                    context.getString(R.string.fingerprint_error_unable_to_process), TAG, FINGERPRINT_ERROR_CANCELED);
-        }
-    }
-
-    class AuthCallback extends FingerprintManager.AuthenticationCallback {
+    protected class AuthCallback extends FingerprintManager.AuthenticationCallback {
         private final Reprint.RestartPredicate restartPredicate;
         private final CancellationSignal cancellationSignal;
         private final AuthenticationListener listener;
         private int restartCount;
 
-        private AuthCallback(int restartCount, Reprint.RestartPredicate restartPredicate,
+        public AuthCallback(int restartCount, Reprint.RestartPredicate restartPredicate,
                             CancellationSignal cancellationSignal, AuthenticationListener listener) {
             this.restartCount = restartCount;
             this.restartPredicate = restartPredicate;
@@ -246,7 +222,7 @@ public class MarshmallowReprintModule implements ReprintModule {
             }
 
             if (errMsgId == FINGERPRINT_ERROR_TIMEOUT && restartPredicate.invoke(failureReason, restartCount)) {
-                authenticate(cancellationSignal, listener, restartPredicate, restartCount);
+                authenticate(cancellationSignal, listener, restartPredicate);
             } else {
                 listener.onFailure(failureReason, true, errString, TAG, errMsgId);
             }

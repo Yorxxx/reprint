@@ -41,5 +41,10 @@ public enum AuthenticationFailureReason {
     /**
      * The authentication failed for an unknown reason.
      */
-    UNKNOWN
+    UNKNOWN,
+
+    /**
+     * The key related to the fingerprint has been invalidated. It needs to be recreated
+     */
+    KEY_INVALID
 }
