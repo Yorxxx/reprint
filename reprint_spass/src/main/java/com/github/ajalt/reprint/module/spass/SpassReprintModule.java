@@ -19,7 +19,7 @@ import static com.github.ajalt.reprint.core.AuthenticationFailureReason.TIMEOUT;
  * This module supports all Samsung phones with fingerprint sensors.
  */
 public class SpassReprintModule implements ReprintModule {
-    public static final int TAG = 2;
+    public static final int TAG = 1;
 
     /**
      * A fingerprint was read successfully.

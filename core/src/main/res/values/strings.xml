@@ -44,4 +44,5 @@
     <string name="fingerprints">Fingerprints:</string>
     <!-- Fingerprint hint message when finger was not recognized.-->
     <string name="fingerprint_not_recognized">Not recognized</string>
+    <string name="fingerprint_error_new_enrolment_detected" translatable="false">New enrolment detected. Operation has been cancelled </string>
 </resources>

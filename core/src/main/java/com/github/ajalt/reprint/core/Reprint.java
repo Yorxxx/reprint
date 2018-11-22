@@ -1,6 +1,9 @@
 package com.github.ajalt.reprint.core;
 
+import android.annotation.TargetApi;
 import android.content.Context;
+import android.os.Build;
+import android.support.annotation.RequiresApi;
 
 /**
  * Static methods for performing fingerprint authentication.
@@ -27,13 +30,13 @@ public class Reprint {
     }
 
     /**
-     * Load all available reprint modules.
+     * Initializes Reprint with default ReprintModule
      * <p/>
      * This is equivalent to calling {@link #registerModule(ReprintModule)} with the spass module,
      * if included, followed by the marshmallow module.
      */
     public static void initialize(Context context) {
-        ReprintInternal.INSTANCE.initialize(context, null);
+        ReprintInternal.INSTANCE.initialize(context);
     }
 
     /**
@@ -72,7 +75,9 @@ public class Reprint {
     }
 
     /**
-     * Return true if a reprint module is registered that has registered fingerprints.
+     * Tries to detect if the crypto object has been invalidated before launching the authentication.
+     * Due to a issue on Android 26, this is not reliable on this version, and you should try authenticating
+     * with the user and check the failure.
      */
     public static boolean hasFingerprintRegistered() {
         return ReprintInternal.INSTANCE.hasFingerprintRegistered();
@@ -128,5 +133,24 @@ public class Reprint {
      */
     public static void cancelAuthentication() {
         ReprintInternal.INSTANCE.cancelAuthentication();
+    }
+
+    /**
+     * Returns true if the fingerprint enrollments have been changed on the device
+     */
+    @TargetApi(Build.VERSION_CODES.M)
+    @RequiresApi(Build.VERSION_CODES.M)
+    public static boolean hasFingerprintSetChanged() {
+        return ReprintInternal.INSTANCE.hasFingerprintSetChanged();
+    }
+
+    /**
+     * Reset the crypto keys which means that authentication will detect newly added enrolments.
+     * This usually done after
+     */
+    @TargetApi(Build.VERSION_CODES.M)
+    @RequiresApi(Build.VERSION_CODES.M)
+    public static void resetKeys() {
+        ReprintInternal.INSTANCE.resetCryptoObject();
     }
 }

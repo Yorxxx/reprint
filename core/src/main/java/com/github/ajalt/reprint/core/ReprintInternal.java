@@ -1,10 +1,13 @@
 package com.github.ajalt.reprint.core;
 
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.os.Build;
+import android.support.annotation.RequiresApi;
 import android.support.v4.os.CancellationSignal;
 
 import com.github.ajalt.library.R;
+import com.github.ajalt.reprint.module.crypto.CryptoReprintModule;
 import com.github.ajalt.reprint.module.marshmallow.MarshmallowReprintModule;
 
 import java.lang.reflect.Constructor;
@@ -28,6 +31,37 @@ enum ReprintInternal {
     private AtomicReference<CancellationSignal> cancellationSignal = new AtomicReference<>();
     private ReprintModule module;
     private Context context;
+
+    public ReprintInternal initialize(Context context) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            initialize(context, new MarshmallowReprintModule(context, NULL_LOGGER));
+        }
+
+        return this;
+    }
+
+    public ReprintInternal initialize(Context context, ReprintModule module) {
+        this.context = context.getApplicationContext();
+
+        // The SPass module doesn't work below API 17, and the Imprint module obviously requires
+        // Marshmallow.
+        if (Build.VERSION.SDK_INT < 17) return this;
+
+        // Load the spass module if it was included.
+        try {
+            final Class<?> spassModuleClass = Class.forName(REPRINT_SPASS_MODULE);
+            final Constructor<?> constructor = spassModuleClass.getConstructor(Context.class, Reprint.Logger.class);
+            ReprintModule spassmodule = (ReprintModule) constructor.newInstance(context, NULL_LOGGER);
+            registerModule(spassmodule);
+        } catch (Exception ignored) {
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            registerModule(module);
+        }
+
+        return this;
+    }
 
     public void initialize(Context context, Reprint.Logger logger) {
         this.context = context.getApplicationContext();
@@ -68,6 +102,23 @@ enum ReprintInternal {
 
     public boolean hasFingerprintRegistered() {
         return module != null && module.hasFingerprintRegistered();
+    }
+
+    @TargetApi(Build.VERSION_CODES.M)
+    @RequiresApi(Build.VERSION_CODES.M)
+    public boolean hasFingerprintSetChanged() {
+        if (module instanceof CryptoReprintModule) {
+            return ((CryptoReprintModule) module).hasFingerprintSetChanged();
+        }
+        return false;
+    }
+
+    @TargetApi(Build.VERSION_CODES.M)
+    @RequiresApi(Build.VERSION_CODES.M)
+    public void resetCryptoObject() {
+        if (module instanceof CryptoReprintModule) {
+            ((CryptoReprintModule) module).createKey();
+        }
     }
 
     /**
