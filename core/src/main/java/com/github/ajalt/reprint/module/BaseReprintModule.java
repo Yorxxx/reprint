@@ -219,6 +219,8 @@ public abstract class BaseReprintModule implements ReprintModule {
                 case FINGERPRINT_ERROR_CANCELED:
                     // Don't send a cancelled message.
                     return;
+                case FINGERPRINT_ERROR_NEW_ENROLMENT_DETECTED:
+                    failureReason = AuthenticationFailureReason.KEY_INVALID;
             }
 
             if (errMsgId == FINGERPRINT_ERROR_TIMEOUT && restartPredicate.invoke(failureReason, restartCount)) {
