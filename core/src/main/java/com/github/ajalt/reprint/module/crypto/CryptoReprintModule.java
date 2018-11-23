@@ -47,8 +47,9 @@ public class CryptoReprintModule extends BaseReprintModule implements ReprintMod
     private static final int TAG = 3;
 
     private static final String DEFAULT_KEYSTORE = "AndroidKeyStore";
-    private static final String DEFAULT_KEY_NAME = "myApplication";
-    private static final String DEFAULT_STORE_PASS = "csdgh@jkbvj@";
+
+    private String keyName;
+    private String keyPass;
 
     public CryptoReprintModule(Context context) {
         this(context, null);
@@ -63,6 +64,11 @@ public class CryptoReprintModule extends BaseReprintModule implements ReprintMod
                              final AuthenticationListener listener,
                              final Reprint.RestartPredicate restartPredicate) {
         authenticate(cancellationSignal, listener, restartPredicate, 0);
+    }
+
+    public void setKeyStoreAccess(String name, String password) {
+        this.keyName = name;
+        this.keyPass = password;
     }
 
     private KeyStore accessKeyStore(String storeName) {
@@ -127,12 +133,12 @@ public class CryptoReprintModule extends BaseReprintModule implements ReprintMod
             throw new IllegalArgumentException("Cipher is required.");
         }
 
-        if (!keyExist()) {
-            createKey();
+        if (keyName == null || keyPass == null || !keyExist()) {
+            throw new IllegalAccessException("Non existing key/password");
         }
 
         store.load(null);
-        SecretKey key = (SecretKey) store.getKey(DEFAULT_KEY_NAME, DEFAULT_STORE_PASS.toCharArray());
+        SecretKey key = (SecretKey) store.getKey(keyName, keyPass.toCharArray());
         cipher.init(Cipher.ENCRYPT_MODE, key);
         return cipher;
     }
@@ -196,10 +202,7 @@ public class CryptoReprintModule extends BaseReprintModule implements ReprintMod
                 return null;
             }
 
-            KeyGenParameterSpec.Builder builder = new KeyGenParameterSpec.Builder(
-                    DEFAULT_KEY_NAME,
-                    KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT
-            )
+            KeyGenParameterSpec.Builder builder = new KeyGenParameterSpec.Builder(keyName, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
                     .setBlockModes(KeyProperties.BLOCK_MODE_CBC)
                     // Require the user to authenticate with a fingerprint to authorize every use
                     // of the key
@@ -226,7 +229,7 @@ public class CryptoReprintModule extends BaseReprintModule implements ReprintMod
             }
 
             store.load(null);
-            SecretKey key = (SecretKey) store.getKey(DEFAULT_KEY_NAME, DEFAULT_STORE_PASS.toCharArray());
+            SecretKey key = (SecretKey) store.getKey(keyName, keyPass.toCharArray());
             if (key != null) {
                 return true;
             }
