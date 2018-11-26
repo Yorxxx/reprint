@@ -1,8 +1,10 @@
 package com.github.ajalt.reprint;
 
 import android.annotation.SuppressLint;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
+import android.support.design.widget.Snackbar;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
@@ -16,6 +18,8 @@ import com.github.ajalt.reprint.core.Reprint;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
+
+import static com.github.ajalt.reprint.module.BaseReprintModule.FINGERPRINT_ERROR_NEW_ENROLMENT_DETECTED;
 
 @SuppressLint("SetTextI18n")
 public class MainActivity extends AppCompatActivity {
@@ -54,6 +58,16 @@ public class MainActivity extends AppCompatActivity {
 
         hardwarePresent.setText(String.valueOf(Reprint.isHardwarePresent()));
         fingerprintsRegistered.setText(String.valueOf(Reprint.hasFingerprintRegistered()));
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Reprint.hasFingerprintSetChanged()) {
+            Snackbar snackbar = Snackbar.make(findViewById(android.R.id.content),
+                    "New fingerprint enrolled. You'll need to create a new key and start again", Snackbar.LENGTH_INDEFINITE);
+            snackbar.setAction("OK", view -> {
+                Reprint.resetKeys();
+                snackbar.dismiss();
+            });
+            snackbar.show();
+        }
 
         running = false;
     }
@@ -158,6 +172,15 @@ public class MainActivity extends AppCompatActivity {
         if (fatal) {
             fab.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.ic_fingerprint_white_24dp));
             running = false;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && errorCode == FINGERPRINT_ERROR_NEW_ENROLMENT_DETECTED) {
+            Snackbar snackbar = Snackbar.make(findViewById(android.R.id.content),
+                    "New fingerprint enrolled. You'll need to create a new key and start again", Snackbar.LENGTH_INDEFINITE);
+            snackbar.setAction("OK", view -> {
+                Reprint.resetKeys();
+                snackbar.dismiss();
+            });
+            snackbar.show();
         }
     }
 }

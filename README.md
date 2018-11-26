@@ -11,6 +11,32 @@ RxJava extensions.
 * Comes with help messages translated in over 80 locales that work with all APIs.
 * Provides optional RxJava interfaces.
 
+# Fork
+
+This fork includes extended functionality from the [original library](https://github.com/ajalt/reprint).
+
+Includes the possibility of adding a new `ReprintModule` called `CryptoReprintModule`, which uses `FingerprintManager.CryptoObject` which 
+is invalidated as soon as a new biometric enrollment has been added to the device.
+This is done via `KeyGenParameterSpec.Builder setInvalidatedByBiometricEnrollment` which states
+
+> Invalidating keys on enrollment of a new finger or unenrollment of all fingers improves security by ensuring that an unauthorized person who obtains the password can't gain the use of fingerprint-authenticated keys by enrolling their own finger. However, invalidating keys makes key-dependent operations impossible, requiring some fallback procedure to authenticate the user and set up a new key.
+
+Sadly there is an [issue](https://issuetracker.google.com/issues/65578763) at Google tracker in which **Android Oreo does not throws the exception**
+However, it can be thrown after an authentication success, when trying to decrypt. This module handles this issue by applying this fix, which means that
+on Android Oreo devices, trying to determine new enrollment before authentication can be useless. 
+For every other device supported, you can use `hasFingerprintSetChanged()`, which tries to determine the validity of the key before actual authentication.
+
+To use this specific module you just need to register it on Reprint
+
+```java
+CryptoReprintModule module = new CryptoReprintModule(getApplicationContext());
+module.setKeyStoreAccess(DEFAULT_KEY_NAME, DEFAULT_STORE_PASS);
+if (!module.keyExist()) {
+    module.createKey();
+}
+Reprint.registerModule(module);
+```
+
 # Usage
 
 See the [sample app](sample/src/main/java/com/github/ajalt/reprint/MainActivity.java) for a complete example.
